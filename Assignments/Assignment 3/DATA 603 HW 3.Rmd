@@ -1,0 +1,619 @@
+---
+title: "DATA 603 HW 3"
+output: 
+  pdf_document: 
+    toc: yes
+date: "2022-11-29"
+author: "Kane Smith"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, include=FALSE}
+options(tinytex.verbose = TRUE)
+```
+
+
+```{r analysis, include=FALSE}
+library(ggplot2)
+library(dplyr)
+library(mosaic)
+library(olsrr)
+library(leaps)
+library(mctest)
+library(lmtest)
+library(car)
+library(MASS)
+library(agricolae)
+options(scipen = 999)
+```
+
+## **Problem 1**
+
+```{r}
+# Read in CSV file
+water =read.csv("water.csv", header = TRUE)
+```
+
+### **a)**
+
+The model given is $\widehat{USAGE} = \hat{\beta_0}PROD+\hat{\beta_1}TEMP+\hat{\beta_2}HOUR+\hat{\beta_3}(PROD*TEMP)+\hat{\beta_4}(PROD*HOUR)$.
+
+When testing for multicollinearity, we do not include interaction terms.
+
+```{r}
+q1_firstorder <- lm(USAGE~PROD+TEMP+HOUR, data = water)
+pairs(~PROD+TEMP+HOUR, data=water)
+vif(q1_firstorder)
+```
+From our output, we get VIFs for all variables between 1 and 2. This means there is low multicollinearity between the predictors in this model and there is no issue with the multicollinearity assumption.
+
+### **b)**
+
+We will first create a residual plot to visually see the distribution of residuals vs fitted values of our model. 
+
+```{r}
+q1_full <-  lm(USAGE~PROD+TEMP+HOUR+ PROD:TEMP+PROD:HOUR, data = water)
+ggplot(q1_full, aes(x=.fitted, y=.resid)) +
+geom_point() +
+geom_hline(yintercept = 0) +
+geom_smooth()+
+ggtitle("Residual plot: Residual vs Fitted values")
+```
+
+Testing for heteroscedasticity using the Breusch-Pagan test:
+
+**Null hypothesis:** heteroscedasticity is not present ($H_0: \sigma^2_1 = \sigma^2_2 =... = \sigma^2_n$)
+
+**Alternative hypothesis:** heteroscedasticity is present ($H_a:$ at least one $\sigma^2_i$ is different from the others)
+
+We will set the alpha value to 0.05.
+
+```{r}
+bptest(q1_full)
+```
+
+From the output of our test, we get a p-value of 0.8484 which is greater than 0.05. This means we fail to reject the null hypothesis that there is homoscedasticity and conclude with a significance level of 0.05 that our model is homoscedastic. This means that there does not appear to do a problem with the homoscedasticity assumption. 
+
+### **c)**
+```{r}
+# Histogram of residuals 
+ggplot(data=q1_full, aes(residuals(q1_full))) +
+geom_histogram(breaks = seq(-1,1,by=0.1), col="red", fill="blue") +
+labs(title="Histogram for residuals") +
+labs(x="residuals", y="Count")
+
+# Q-Q Plot
+ggplot(q1_full, aes(sample=q1_full$residuals)) +
+stat_qq() +
+stat_qq_line()
+```
+
+Testing for normality using the Shapiro-Wilk test:
+
+**Null hypothesis:** the sample data are significantly normally distributed
+
+**Alternative hypothesis:** the sample data are not significantly normally distributed
+
+We will set the alpha value to 0.05.
+
+```{r}
+shapiro.test(residuals(q1_full))
+```
+
+From the output of our test, we get a p-value of 0.00000000000000022 which is less than 0.05. This means we can reject our null hypothesis that our sample data is significantly normally distributed and conclude with a significance level of 0.05 that our sample data is not normally distributed. This means that there is a problem with the normality assumption. 
+
+### **d)**
+```{r}
+ggplot(q1_full, aes(x=.fitted, y=.resid)) +
+geom_point() + geom_smooth()+
+geom_hline(yintercept = 0)
+```
+
+Looking at the plot of residuals vs. predicted $\hat{Y}$, the there is a linear relationship between the predictors in our model and the response variable as the data in the plot do not seem to diverge from the line very much. Therefore, it does not seem like there is a problem with the linearity assumption. 
+
+### **e)**
+```{r}
+# Get points where cooks distance is greater than 1
+water[cooks.distance(q1_full)>1,]
+```
+
+From our output, there does not seem to be any data points with a cook's distance greater than 1 which means there are no influential outliers in our data. We will check this conclusion with a residual vs. leverage plot:
+
+```{r}
+plot(q1_full,which=5)
+```
+
+From our residual vs. leverage plot, we can see that there is indeed no data points with a cook's distance greater than 1. In fact, all points have a cook's distance less than 0.5. So therefore we can conclude that we have no problems with influential outliers in our data.
+ 
+### **f)**
+
+Based on our conclusions from parts (a)-(e), our model meets all assumptions except the normality assumption since the model failed the Shapiro-Wilk test. To fix the normality issue, we will likely need to add more variables into our model. This could mean adding already existing variables, creating new variables through transformations, or collecting more data. 
+
+
+## **Problem 2**
+
+```{r}
+# Read in CSV file
+kbi =read.csv("KBI.csv", header = TRUE)
+```
+
+### **a)**
+
+Before we begin our tests, we will fit the model given to us:
+
+```{r}
+q2_fit <- lm(BURDEN~MEM+SOCIALSU+CGDUR, data=kbi)
+```
+
+
+Testing for normality using the Shapiro-Wilk test:
+
+**Null hypothesis:** the sample data are significantly normally distributed
+
+**Alternative hypothesis:** the sample data are not significantly normally distributed
+
+We will set the alpha value to 0.05.
+
+```{r}
+shapiro.test(residuals(q2_fit))
+```
+
+From the output of our test, we get a p-value of 0.2716 which is greater than 0.05. This means we fail to reject our null hypothesis that our sample data is significantly normally distributed and conclude with a significance level of 0.05 that our sample data is  normally distributed. This means that there is no problem with the normality assumption.
+
+
+Testing for heteroscedasticity using the Breusch-Pagan test:
+
+**Null hypothesis:** heteroscedasticity is not present ($H_0: \sigma^2_1 = \sigma^2_2 =... = \sigma^2_n$)
+
+**Alternative hypothesis:** heteroscedasticity is present ($H_a:$ at least one $\sigma^2_i$ is different from the others)
+
+We will set the alpha value to 0.05.
+
+```{r}
+bptest(q2_fit)
+```
+
+From the output of our test, we get a p-value of 0.5681 which is greater than 0.05. This means we fail to reject the null hypothesis that there is homoscedasticity and conclude with a significance level of 0.05 that our model is homoscedastic. This means that there does not appear to do a problem with the homoscedasticity assumption. 
+
+Testing for linearity using a residuals vs predicted $\hat{Y}$ plot:
+```{r}
+ggplot(q2_fit, aes(x=.fitted, y=.resid)) +
+geom_point() + geom_smooth()+
+geom_hline(yintercept = 0)
+```
+
+Looking at this plot, our model does seem to be linear.
+
+### **b)**
+```{r}
+lev=hatvalues(q2_fit)
+p = length(coef(q2_fit))
+n = nrow(kbi)
+outlier3p = lev[lev>(3*p/n)]
+outlier3p
+```
+
+From our output, there seems to be two data points, row 58 and row 71, with a leverage greater than $3p/n$. We will check this with a residual vs. leverage plot:
+
+```{r}
+plot(q2_fit,which=5)
+```
+We will remove row 58 and row 71, as it is considered an influential outlier.
+
+```{r}
+kbi_2 <- kbi[-c(58, 71), ]
+```
+
+### **c)**
+```{r}
+q2_fit2 <- lm(BURDEN~MEM+SOCIALSU+CGDUR, data=kbi_2)
+summary(q2_fit)
+summary(q2_fit2)
+```
+
+**Original data model:** $115.539 + 0.566MEM - 0.49237SOCIALSU + 0.121CDUR$
+
+We get an adjusted R-squared value of 0.4222 and a RMSE of 15.25.
+
+**New data model:** $115.05690 + 0.55803MEM - 0.49423SOCIALSU + 0.16150CDUR$
+
+We get an adjusted R-squared value of 0.43 and a RMSE of 15.19.
+
+By removed row 58, the intercept and coefficients in our model changed slightly. The adjusted R-squared increased by (0.43 - 0.4222) = 0.0078 and our RMSE decreased by (15.25 - 15.19) = 0.06. So by removing row 58 from the data, our model improved overall.
+
+## **Problem 3**
+
+```{r}
+# Read in CSV file
+butterfat =read.csv("butterfat.csv", header = TRUE)
+```
+
+### **a)**
+```{r}
+ggplot(data = butterfat) + geom_boxplot(aes(x=Breed, y=Butterfat)) + ggtitle("Boxplot of Butterfat for each Breed")
+```
+
+Holstein-Fresian has the lowest mean butterfat content and also the tightest interqartile range. Jersey cows have the highest mean butterfat content along with the largest interquartile range. 
+
+Ranking the breeds in terms of mean butter fat content from highest to lowest: Jersey, Guernsey, Canadian, Ayrshire and Holstein-Fresian. This ranking is pretty much the same for the tightness of interquartile range from leats tight to most tight. 
+
+
+```{r}
+ggplot(data = butterfat)+ geom_boxplot(aes(x=Age, y=Butterfat))+ggtitle("Boxplot of Butterfat for each Age Group")
+```
+
+The mean butterfat content for mature cows seems to be slightly higher compared to 2year cows. The interquartile range is approximately the same size when comparing the two age groups. 
+
+### **b)**
+```{r}
+q3_fit <- lm(Butterfat~Age+Breed, data=butterfat)
+q3_interaction <-  lm(Butterfat~(Age+Breed)^2, data=butterfat)
+summary(q3_fit)
+summary(q3_interaction)
+```
+
+I would not keep age in my model for predicting butterfat content. This is because age is not statistically significant per individual t-test, and none of it's interactions are statistically significant either. 
+
+
+```{r}
+q3_final <- lm(Butterfat~Breed, data=butterfat)
+summary(q3_final)
+```
+
+Therefore, our predictive model will be: $\widehat{Butterfat} = 4.06000 + 0.37850(Breed_{Canadian})+0.89000(Breed_{Guernsey})-0.39050(Breed_{Holstein-Fresian}) + 1.23250(Breed_{Jersey})$
+
+### **c)**
+
+Testing for normality using the Shapiro-Wilk test:
+
+**Null hypothesis:** the sample data are significantly normally distributed
+
+**Alternative hypothesis:** the sample data are not significantly normally distributed
+
+We will set the alpha value to 0.05.
+
+```{r}
+shapiro.test(residuals(q3_final))
+```
+
+From the output of our test, we get a p-value of 0.01571 which is less than 0.05. This means we can  reject our null hypothesis that our sample data is significantly normally distributed and conclude with a significance level of 0.05 that our sample data is not normally distributed. This means that there is a problem with the normality assumption.
+
+Plotting a Q-Q plot:
+
+```{r}
+ggplot(q3_final, aes(sample=q3_final$residuals)) +
+stat_qq() +
+stat_qq_line()
+```
+
+Looking at our Q-Q plot, it does make sense that we would reject the null hypothesis of our sample data is significantly normally distributed in our Shapiro-Wilk test as it does look like a good amount of the points are diverging from the normaility line.
+
+
+Testing for heteroscedasticity (non-constant variance) using the Breusch-Pagan test:
+
+**Null hypothesis:** heteroscedasticity is not present ($H_0: \sigma^2_1 = \sigma^2_2 =... = \sigma^2_n$)
+
+**Alternative hypothesis:** heteroscedasticity is present ($H_a:$ at least one $\sigma^2_i$ is different from the others)
+
+We will set the alpha value to 0.05.
+
+```{r}
+bptest(q3_final)
+```
+
+From the output of our test, we get a p-value of 0.009525 which is less than 0.05. This means we can reject the null hypothesis that there is homoscedasticity and conclude with a significance level of 0.05 that our model is not homoscedastic. This means that there does appear to do a problem with the homoscedasticity assumption. 
+
+**Conclusion:** Based on the tests conducted above, the data does not seem to be normally distributed since we failed the Shapiro-Wilk test and the model seems to be heteroscedastic since we failed the Breusch-Pagan test.
+
+
+### **d)**
+
+To fix the issues with our model identified in part (c), we will do a Box-Cox transformation. First, we should confirm that our responce variable is always positive.
+
+```{r}
+butterfat[butterfat["Butterfat"]<0,]
+```
+
+We get no rows where butterfat is less than 0, so we can continue with the Box-Cox transformation.
+
+```{r}
+bc=boxcox(q3_final,lambda=seq(-3,0))
+bestlambda=bc$x[which(bc$y==max(bc$y))]
+bestlambda
+```
+
+From above, the best lambda is approximately -1.424242.
+
+```{r}
+bcmodel = lm((((Butterfat^(-1.424242))-1)/-1.424242)~Breed,data=butterfat)
+summary(q3_final)
+summary(bcmodel)
+(0.4151 - 0.009995)/0.4151
+```
+
+Comparing our Box-Cox transformed model with our original model fitted in part (b):
+
+**Original model:** $\widehat{Butterfat} = 4.06000 + 0.37850(Breed_{Canadian})+0.89000(Breed_{Guernsey})-0.39050(Breed_{Holstein-Fresian}) + 1.23250(Breed_{Jersey})$
+
+**Box-Cox model:** $\widehat{Butterfat} = 0.606021 + 0.011144(Breed_{Canadian})+0.022989(Breed_{Guernsey})-0.014954(Breed_{Holstein-Fresian}) + 0.029329(Breed_{Jersey})$
+
+Our Box-Cox model has an adjusted R-squared of 0.6988 which is (0.7159 - 0.6635) = 0.0524 or 7.89% larger than our original fitted model. We also get an RMSE of 0.05462 which is (0.4151 - 0.009995) = 0.36048, or  97.59% smaller than our original model. Therefore, our Box-Cox transformed model is superior in both regards.
+
+### **e)**
+
+We will now do a diagnostics analysis like in part (c) on our Box-Cox model.
+
+Testing for normality using the Shapiro-Wilk test:
+
+**Null hypothesis:** the sample data are significantly normally distributed
+
+**Alternative hypothesis:** the sample data are not significantly normally distributed
+
+We will set the alpha value to 0.05.
+
+```{r}
+shapiro.test(residuals(bcmodel))
+```
+
+From the output of our test, we get a p-value of 0.2578 which is greater than 0.05. This means we fail to reject our null hypothesis that our sample data is significantly normally distributed and conclude with a significance level of 0.05 that our sample data is not normally distributed. This means that there is no longer a  problem with the normality assumption.
+
+Plotting a Q-Q Plot:
+
+```{r}
+ggplot(bcmodel, aes(sample=bcmodel$residuals)) +
+stat_qq() +
+stat_qq_line()
+```
+
+Testing for heteroscedasticity (non-constant variance) using the Breusch-Pagan test:
+
+**Null hypothesis:** heteroscedasticity is not present ($H_0: \sigma^2_1 = \sigma^2_2 =... = \sigma^2_n$)
+
+**Alternative hypothesis:** heteroscedasticity is present ($H_a:$ at least one $\sigma^2_i$ is different from the others)
+
+We will set the alpha value to 0.05.
+
+```{r}
+bptest(bcmodel)
+```
+
+From the output of our test, we get a p-value of 0.2689 which is greater than 0.05. This means we fail to reject the null hypothesis that there is homoscedasticity and conclude with a significance level of 0.05 that our model is in fact homoscedastic. This means that there no longer appears to do a problem with the homoscedasticity assumption. 
+
+
+From the diagnostics analysis conducted above, it seems like the Box-Cox transformation fixed the issues with our model assumptions since our model now passes the Breusch-Pagan and Shapiro-Wilk test.
+
+## **Problem 4**
+
+```{r}
+# Read in CSV file
+vibration =read.csv("vibration.csv", header = TRUE)
+```
+
+### **a)**
+
+The response variable is the amount of motor vibration (measured in microns).
+
+The experimental unit is the motors.
+
+### **b)**
+
+The treatment is the bearing used in the motor.
+
+There are 5 treatment levels because there are 5 different brands of bearings.
+
+### **c)**
+
+Null hypothesis: $H_0: \mu_1 =  \mu_2 =  \mu_3 =  \mu_4 =  \mu_5$ 
+
+Null hypothesis: $H_a:$ At least one $\mu_i$ is different for $i=1,2,3,4,5$
+
+We will set the alpha value to 0.05.
+
+```{r}
+CRD <- aov(vibration~brand, data=vibration)
+summary(CRD)
+```
+
+From our ANOVA output, we get a F-calc of 8.444 and a p-value of 0.000187. Since the p-value is less than our set alpha value of 0.05, we can reject the null hypothesis that the mean amount of motor vibration is the same for all brands of bearings. Therefore, we can conclude with a significance level of 0.05 that at least one of the mean motor vibrations is different for the five brands of bearings.
+
+### **d)**
+```{r}
+vib_fit <- lm(vibration~brand, data=vibration)
+reg_df = 4
+res_df = nrow(vibration) - reg_df - 1
+total_df = reg_df + res_df
+ssr = sum((vib_fit$fitted.values - mean(vibration$vibration))^2)
+sse = sum((vib_fit$fitted.values-vibration$vibration)^2)
+sst = sse + ssr
+msr = ssr/reg_df
+mse = sse/res_df
+f_calc = msr/mse
+col_1 <- c("Regression", "Residual", "Total")
+col_2 <- c(reg_df, res_df, total_df)
+col_3 <- c(ssr, sse, sst)
+col_4 <- c(msr, mse, "")
+col_5 <- c(f_calc, "", "")
+anova_df <- data.frame(col_1, col_2,col_3,col_4, col_5)
+colnames(anova_df) <- c("Source of Variation", "Df", "Sum of Squares", "Mean Square", "F-Statistic")
+knitr::kable(anova_df, caption = "ANOVA Table")
+```
+
+### **e)**
+```{r}
+ggplot(data = vibration) + geom_boxplot(aes(x=brand, y=vibration)) + ggtitle("Boxplot of Motor Vibration for each Brand of Bearings")
+```
+
+Based on the boxplots above, it seems like there may be some influential outliers for brand 1 and brand 3. To see for sure, we should calculate their cook's distance.
+
+```{r}
+# Maybe remove this 
+vibration[cooks.distance(vib_fit)>0.1,]
+```
+
+
+### **f)**
+
+Before we do any pairwise tests, we should conduct a global F-test to be certain that at least one of the columns is statistically significant:
+
+```{r}
+vibration_null <- lm(vibration~1, data=vibration)
+anova(vibration_null, vib_fit)
+```
+
+We get an F-stat of 8.444 and a p-value of 0.0001871 meaning that we can say that at least one $\mu_{brand}$ is significant. So we can go ahead with the pairwise tests. For all tests we will set our alpha value to 0.05.
+
+**Unadjusted Pairwise t-test:**
+
+```{r}
+pairwise.t.test(vibration$vibration,vibration$brand, p.adj = "none")
+```
+
+From the output, we get the following groups:
+
+Brand 1: a
+Brand 2: b
+Brand 3: a 
+Brand 4: a 
+Brand 5: a
+
+
+**Adjusted Pairwise t-test:**
+
+Bonferroni Adjustment:
+
+```{r}
+pairwise.t.test(vibration$vibration,vibration$brand, p.adj = "bonferroni")
+```
+
+From the output, we get the following groups:
+
+Brand 1: a
+Brand 2: b
+Brand 3: a 
+Brand 4: a 
+Brand 5: a
+
+
+Holm Adjustment:
+
+```{r}
+pairwise.t.test(vibration$vibration,vibration$brand, p.adj = "holm")
+```
+
+
+From the output, we get the following groups:
+Brand 1: a
+Brand 2: b
+Brand 3: a 
+Brand 4: ab
+Brand 5: a
+
+Holm is the superior t-test out of the three we have conducted, so we will defer to it's output.
+
+
+
+**Tukey HSD Test:**
+
+```{r}
+TukeyHSD(CRD, conf.level = 0.95)
+plot(TukeyHSD(CRD, conf.level = 0.95),las=1, col = "red")
+```
+
+From the output, we get the following groups:
+Brand 1: a
+Brand 2: b
+Brand 3: ab
+Brand 4: ab
+Brand 5: a
+
+**Newman-Keuls Test:**
+
+```{r}
+print(SNK.test(CRD,"brand",group=TRUE))
+```
+
+Brand 2 & Brand 4 & Brand 5 are different from each other.
+
+**Scheffe Test:**
+
+```{r}
+scheffe.test(CRD,"brand", group=TRUE,console=TRUE)
+```
+
+
+Brand 2 is different from Brand 1 & Brand 3 & Brand 5
+
+
+**Final Conclusions:**
+```{r}
+brands <- c("Brand 1","Brand 2","Brand 3","Brand 4","Brand 5")
+tests <- c("Unadjusted  t-test", "Bonferroni", "Holm", "Tukey HSD", "Newman-Keuls", "Scheffe")
+unadjusted <- c("a", "b", "a", "a", "a")
+bonferroni <- c("a", "b", "a", "a", "a")
+holm <- c("a", "b", "a", "ab", "a")
+tukey <- c("a", "b", "ab", "ab", "a")
+newman <- c("a", "b", "bc", "bc", "c")
+scheffe <- c("a", "ab", "b", "b", "b")
+final_conc <- data.frame(brands,unadjusted,bonferroni,holm,tukey,newman,scheffe )
+final_conc
+```
+
+The above data frame displays all of the outputs for the tests we conducted. Our final conclusion will depend on what test we choose.
+
+### **g)**
+
+There are three basic assumption of CRD model:
+
+1. The error terms are independent of each other
+
+2. The error terms are normally distributed with a true mean of 0
+
+3. The error terms have constant variance (homoscedastic)
+
+
+1. Plotting Residuals vs. Fitted values:
+
+If the residuals are independent of each other, there should be no obvious patterns in the plot.
+
+```{r}
+ggplot(vib_fit, aes(x=.fitted, y=.resid)) +
+geom_point() + geom_smooth()+
+geom_hline(yintercept = 0)
+```
+
+Looking at the plot above, it seems that the residuals are evenly distributed, meaning that the residuals are independant from each other.
+
+2. Testing for normality using the Shapiro-Wilk test:
+
+**Null hypothesis:** the sample data are significantly normally distributed
+
+**Alternative hypothesis:** the sample data are not significantly normally distributed
+
+We will set the alpha value to 0.05.
+
+```{r}
+shapiro.test(residuals(vib_fit))
+```
+
+From the output of our test, we get a p-value of 0.3091 which is greater than 0.05. This means we fail to reject our null hypothesis that our sample data is significantly normally distributed and conclude with a significance level of 0.05 that our sample data is not normally distributed. This means that there is no problem with the normality assumption.
+
+3. Testing for heteroscedasticity (non-constant variance) using the Breusch-Pagan test:
+
+**Null hypothesis:** heteroscedasticity is not present ($H_0: \sigma^2_1 = \sigma^2_2 =... = \sigma^2_n$)
+
+**Alternative hypothesis:** heteroscedasticity is present ($H_a:$ at least one $\sigma^2_i$ is different from the others)
+
+We will set the alpha value to 0.05.
+
+```{r}
+bptest(vib_fit)
+```
+
+From the output of our test, we get a p-value of 0.3344 which is greater than 0.05. This means we fail to reject the null hypothesis that there is homoscedasticity and conclude with a significance level of 0.05 that our model is homoscedastic. This means that there does not appear to do a problem with the homoscedasticity assumption. 
+
+**Final Conclusion:** 
+
+Based on the above tests on our model's basic assumptions, we can conclude that our model meets the assumption of independent error terms, normality and homoscedasticity. Therefore there are no issues with our model in regards to the assumptions and we do not need to do anything else.

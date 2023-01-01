@@ -1,0 +1,462 @@
+---
+title: "DATA 603 HW 2"
+output: 
+  pdf_document: 
+    toc: yes
+date: "2022-11-16"
+author: "Kane Smith"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, include=FALSE}
+options(tinytex.verbose = TRUE)
+```
+
+
+```{r analysis, include=FALSE}
+library(ggplot2)
+library(dplyr)
+library(mosaic)
+library(olsrr)
+library(leaps)
+```
+
+
+## **Problem 1**
+
+```{r}
+# Read in CSV file
+tires=read.csv("tires.csv", header = TRUE)
+```
+
+
+### **a)**
+```{r}
+# Fitting the full model
+tires_full <- lm(wear~., data=tires)
+summary(tires_full)
+```
+
+Conducting an individual t-test:
+
+$H_0: \beta_i = 0$
+
+$H_a: \beta_i \neq 0$
+
+$ i = (type_B, ave)$
+
+Using an alpha value of 0.05, all of parameters are statistically significant by the Individual t-test. Our estimated best fit model is as follows:
+
+$\widehat{wear} = -0.6445083 + 0.1725006type_{B} + 0.0113094ave$
+
+### **b)**
+
+The only categorical variable in the data set is "type". 
+
+```{r}
+levels(factor(tires$type))
+summary(tires_full)
+```
+There are two levels to the categorical variable "type". Type A tires and type B tires.
+
+Based on the summary of our full model, the dummy variable is type_B and has a coefficient of 0.1725006.
+
+### **c)**
+
+$\beta_{0}$ (Intercept): The average tread wear per 160km of type A tires when the average speed is 0 km/hr. This value is -0.6445083%, which does not make sense for interpretation since having negative tread wear is not possible. 
+
+$\beta_{type_B}$: The average difference in tread wear per 160km between type A and type B tires. This value is 0.1725006 which means that type B tires will have 0.1725006% more tread wear on average compared to type A tires.
+
+$\beta_{0} + \beta_{type_B}$ The average tread wear per 160km of type B tires when the average speed is 0 km/hr. This value is -0.4720077% which also does not make sense for interpretation since having negative tread wear is not possible. 
+
+$\beta_{ave}$:The amount the average tread wear per 160km increases when the average speed increases by 1 km/hr. This value is 0.0113094 which means that for an increase in average speed of  1 km/hr, the average tread wear per 160km will increase by 0.0113094%.
+
+### **d)**
+
+Our best fit additive model contains all variables (type and ave). Building an interaction model with all of our variables:
+
+```{r}
+tires_interaction <- lm(wear~(type+ave)^2, data=tires)
+summary(tires_interaction)
+```
+Doing an individual t-test:
+
+
+$H_0: \beta_i = 0$
+
+$H_a: \beta_i \neq 0$
+
+$(i = (ave*type_B)$
+
+We see that all terms in our model are statistically significant with a p-value <2e-16, therefore we should keep all terms in our model. The adjusted R-squared value increases from 0.8844 in our full model with no interaction terms to 0.96 in our full model with interaction terms. This means we can say that 96% of the variance in the response variable, average tread wear, can be explained with our new model with interaction terms. We see a large increase in our adjusted R-squared when adding the interaction term into our model.
+
+
+Therefore, the model I would suggest for predicting y (tread wear) is: $\widehat{wear} = -0.3888744 + -1.0800050type_{B} + 0.0087833ave + 0.0119840(type_{B}*ave)$
+
+
+### **e)**
+```{r}
+summary(tires_interaction)
+```
+
+The adjusted R-squared value from our model in d) is 0.96. This means that 96% of the variance in the response variable, average tread wear, can be explained with our new model with interaction terms.
+
+
+### **f)**
+
+Predicting average tread wear using the following values:
+
+**ave:** 100 km/hr
+
+**tire type:** Type A
+
+```{r}
+-0.3888744 + -1.0800050*(0) + 0.0087833*(100) + 0.0119840*(0*100)
+```
+
+We get a predicted average tread wear of 0.4894556% per 160km. To ensure we can trust this value, we should make sure that we are not extrapolating by checking that the value we used for ave (100 km/hr) is within the range of data we used to fit our model.
+
+```{r}
+favstats(tires$ave, data=tires)[c("min","max")]
+```
+
+100 km/hr is within the range of our data of 80-113 so therefore we can be sure we were not extrapolating and can trust the average tread wear that we predicted. 
+
+## **Problem 2**
+
+```{r}
+# Read in CSV file
+mental_health <- read.csv("MentalHealth.csv")
+```
+
+
+### **a)**
+
+Our response/dependent variable is EFFECT, the effect of the treatment for severe depression.
+
+### **b)**
+
+Our predictor/independent variables are AGE, the age of the patient, and METHOD, the treatment method used to treat severe depression. 
+
+### **c)**
+```{r}
+ggplot(mental_health, aes(y = EFFECT, x = AGE, color = METHOD)) + geom_point(size = 2) +ggtitle("Effect of Treatment Method and Age")
+```
+
+Based on the scatter plot, it seems like method A had the largest treatment effect on average. There also seems to be a positive relationship between the age of a patient and the treatment effect, meaning that the older a patient is, the bigger the treatment effect on average. 
+
+### **d)**
+
+To check for interaction between age and treatment method, we will create an interaction model and evaluate the interaction term using the Individual t-test and partial F-test.
+```{r}
+mental_health_interaction <- lm(EFFECT~(AGE+factor(METHOD))^2, data=mental_health)
+summary(mental_health_interaction)
+```
+
+From the summary output of our full interaction model, all terms are statistically significant except for (AGExMETHOD_B). However, we will include this term in the model since the interaction between (AGExMETHOD_C).
+
+
+```{r}
+mental_health_model <- lm(EFFECT~AGE+factor(METHOD), data = mental_health)
+anova(mental_health_model, mental_health_interaction)
+```
+
+Doing a partial F-test, we get a p-value of 9.41e-07. Therefore we can see that adding the interaction terms to our model was significant.
+
+### **e)**
+
+$\widehat{EFFECT} = 47.51559 + 0.33051AGE - 18.59739(METHOD_B) - 41.30421(METHOD_C) + 0.19318(AGE*METHOD_B) + 0.70288(AGE*METHOD_C)$
+
+Sub-models:
+
+$\widehat{EFFECT} = 47.51559 + 0.33051AGE$,  When METHOD_A is used.
+
+$\widehat{EFFECT} = 28.9182 + 0.52369AGE$,  When METHOD_B is used.
+
+$\widehat{EFFECT} = 6.21138 + 1.03339AGE$,  When METHOD_C is used.
+
+
+### **f)**
+
+We can see from part (e) that the treatment effects how effective the treatment is for different ages. Specifically:
+
+Method A: The treatment effect of METHOD_A when AGE is 0 is 47.51559. For ever 1 year increase in AGE, the treatment effect increases by 0.52369.
+
+Method B: The treatment effect of METHOD_B when AGE is 0 is 28.9182. For ever 1 year increase in AGE, the treatment effect increases by 0.33051.
+
+Method C: The treatment effect of METHOD_C when AGE is 0 is 6.21138 . For ever 1 year increase in AGE, the treatment effect increases by 1.03339.
+
+### **g)**
+```{r}
+method_A =function(x){coef(mental_health_model)[2]*x+coef(mental_health_model)[1]}
+method_B=function(x){coef(mental_health_model)[2]*x+coef(mental_health_model)[1]+coef(mental_health_model)[3]}
+method_C=function(x){coef(mental_health_model)[2]*x+coef(mental_health_model)[1]+coef(mental_health_model)[4]}
+ggplot(mental_health, aes(y = EFFECT, x = AGE, color = METHOD)) + geom_point(size = 2) + stat_function(fun=method_A, geom="line",color="#F8766D") + stat_function(fun=method_B,geom="line",color="#00BA38")+ stat_function(fun=method_C,geom="line",color="#619CFF")+ggtitle("Effect of Treatment Method")
+```
+
+```{r}
+coef(mental_health_model)
+method_A =function(x){47.51559 + x*0.33051}
+method_B=function(x){28.9182 + x*0.52369}
+method_C=function(x){6.21138 + x*1.03339}
+ggplot(mental_health, aes(y = EFFECT, x = AGE, color = METHOD)) + geom_point(size = 2) + stat_function(fun=method_A, geom="line",color="#F8766D") + stat_function(fun=method_B,geom="line",color="#00BA38")+ stat_function(fun=method_C,geom="line",color="#619CFF") + ggtitle("Effect of Treatment Method with Interactions")
+```
+
+From the plot with no interaction effects, we would think that METHOD_A is always the best treatment method, however when you look the plot with interactions, METHOD_B seems to be superior for patients with AGE over ~60 years. METHOD_A always seems  to be superior to METHOD_C for our data.
+
+## **Problem 3**
+
+```{r}
+# Read in txt file
+flag <- read.table("FLAG2.txt", header = TRUE)
+flag_subset <- flag[c("LOWBID", "DOTEST", "STATUS", "DISTRICT", "NUMIDS", "DAYSEST", "RDLNGTH", "PCTASPH", "PCTBASE", "PCTEXCAV", "PCTMOBIL", "PCTSTRUC", "PCTTRAF")]
+```
+
+
+### **a)**
+```{r}
+# Create full model
+flag_full <- lm(LOWBID~., data=flag_subset)
+# Apply step-wise regression on full model
+stepmod_flag = ols_step_both_p(flag_full,pent = 0.05, prem = 0.1, details=FALSE)
+summary(stepmod_flag$model)
+```
+
+Using step-wise regression, the final model contains the variables DOTEST, STATUS and NUMIDS. 
+
+Therefore, the final additive model using step-wise regression is: $\widehat{LOWBID} = 57110 + 0.9374(DOTEST) + 95250(STATUS_1) - 15350(NUMIDS)$
+
+We get an adjusted R-squared of 0.9761 and and a RMSE of $281686.7.
+
+### **b)**
+```{r}
+stepmod_flag2 = ols_step_forward_p(flag_full,pent = 0.05, details=FALSE)
+summary(stepmod_flag2$model)
+sigma(stepmod_flag2$model)
+```
+
+Using forward regression procedure with pent=0.05, we get the same suitable independent variables as step-wise regression procedure of DOTEST, STATUS, and NUMIDS. The final additive model from forward regression procedure is:
+
+$\widehat{LOWBID} = 57110 + 0.9374(DOTEST) + 95250(STATUS_1) - 15350(NUMIDS)$
+
+We get an adjusted R-squared of 0.9761 and and a RMSE of  $281686.7. This is the same model as in a).
+
+### **c)**
+```{r}
+stepmod_flag3 = ols_step_backward_p(flag_full,pent = 0.05, details=FALSE)
+summary(stepmod_flag3$model)
+sigma(stepmod_flag3$model)
+```
+
+Using backward regression procedure with pent=0.05, we get the  statistically significant independent variables of DOTEST, STATUS, NUMIDS and PCTEXCAV. 
+
+
+Re-running the regression with just these variables
+```{r}
+flag_c <- lm(LOWBID~DOTEST+factor(STATUS)+NUMIDS+PCTEXCAV, data=flag_subset)
+summary(flag_c)
+```
+
+Now PCTEXCAV is insignficant and NUMIDS is in the grey zone. We will remove PCTEXCAV and re-run the model one more time:
+
+```{r}
+flag_c <- lm(LOWBID~DOTEST+factor(STATUS)+NUMIDS, data=flag_subset)
+summary(flag_c)
+```
+
+Everything is now significant, so we will stop here for creating an additive model. The significant predictors are DOTEST, STATUS, and NUMIDS.
+
+The final model to be used for prediction would be the following:
+
+$\widehat{LOWBID} = 57110 + 0.9374(DOTEST) + 95250(STATUS_1) - 15350(NUMIDS)$
+
+We get an adjusted R-squared of 0.9761 and and a RMSE of 281686.7. This is the same model as in a) and b). 
+
+### **d)**
+```{r}
+summary(lm(LOWBID~., data=flag_subset))
+```
+
+Conducting individual t-tests with an alpha of 0.05:
+
+$H_0: \beta_i = 0$
+
+$H_a: \beta_i \neq 0$
+
+$(i = DOTEST, STATUS, DISTRICT, NUMIDS, DAYSEST, RDLNGTH, PCTASPH, PCTBASE, PCTEXCAV, PCTMOBIL, PCTSTRUC, PCTTRAF)$
+
+We get the following statistically significant variables: DOTEST, STATUS,and NUMIDS. Therefore the model that we would propose for predictive purposes should contain these variables.
+
+Re-running the regression with just these variables:
+```{r}
+flag_d <- lm(LOWBID~DOTEST+factor(STATUS)+NUMIDS, data=flag_subset)
+summary(flag_d)
+```
+
+The final model I would recommend for predicting the lowest bid would be the following:
+
+$\widehat{LOWBID} =57110 + 0.9374(DOTEST) + 95250(STATUS_1) - 15350(NUMBIDS)$
+
+### **e)**
+
+The independent variables that consistently are selected throughout the procedures in (a)-(d) are DOTEST, STATUS  and NUMIDS. In fact, all additive model from (a)-(d) are exactly the same. Therefore the only possible additive model from (a)-(d) is:
+
+$\widehat{LOWBID} =57110 + 0.9374(DOTEST) + 95250(STATUS_1) - 15350(NUMBIDS)$
+
+### **f)**
+```{r}
+flag_f <- lm(LOWBID~DOTEST+factor(STATUS)+NUMIDS+factor(DISTRICT), data = flag_subset)
+summary(flag_f)
+```
+
+The absolute difference between district 1 and district 4 is the regression coefficient for district 4. This is because district one is the default in our model. From the output summary, we get a difference in the average contract bid price between district 1 and 4 of -316505.6188.
+
+
+### **g)**
+```{r}
+flag_g <- lm(LOWBID~DOTEST+factor(STATUS)+NUMIDS+factor(DISTRICT), data = flag_subset)
+summary(flag_g)
+```
+
+The difference in average bid price from the lowest bidder from district 2 and district 5 is the coefficient of district 2 minus the coefficient of district 5. Therefore we get 71000 - (-14150) = 85150. The difference in the average contract bid of district 2 and district 5 is 85150.
+
+### **h)**
+
+```{r}
+flag_h <- lm(LOWBID~(DOTEST+factor(STATUS)+NUMIDS+factor(DISTRICT))^2, data = flag_subset)
+summary(flag_h)
+```
+
+Based on the above output, the following terms are significant: DOTEST, DISTRICT, (DOTEST x STATUS), (DOTEST x NUMIDS), (DOTEST x DISTRICT) and (NUMIDS x DISTRICT).
+
+Because there are significant interaction with NUMIDS and STATUS, we should keep these variables in our model. We will remove the interaction between STATUS and DISTRICT as these terms are not significant, and then rerun our model.
+
+I will run a partial F-test to confirm we should remove this interaction. Our null and alternative hypothesis are:
+
+Null hypothesis: $H_{0}: \beta_{STATUS*DISTRICT}=0$
+
+Alternative hypothesis: At least one $H_{A}:\beta_{STATUS*DISTRICT} \neq 0$
+
+We will set the alpha value to 0.05.
+
+```{r}
+anova(lm(LOWBID~DOTEST+factor(STATUS)+NUMIDS+factor(DISTRICT)+DOTEST:factor(STATUS)+DOTEST:NUMIDS+ DOTEST:factor(DISTRICT)+ NUMIDS:factor(DISTRICT),data=flag_subset), flag_h)
+```
+
+Since out p-value is 0.579 which is larger than the alpha value of 0.05, we fail to reject the null hypothesis that the coefficient of (STATUS x DISTRICT) is different from 0. Therefore we should remove it from our model.
+
+```{r}
+flag_h_reduced <- lm(LOWBID~DOTEST+factor(STATUS)+NUMIDS+factor(DISTRICT)+DOTEST:factor(STATUS)+DOTEST:NUMIDS+ DOTEST:factor(DISTRICT)+ NUMIDS:factor(DISTRICT),data=flag_subset)
+summary(flag_h_reduced)
+```
+
+When we re-run our model, now the interaction between NUMIDS and DISTRICT is insignificant the rest of the interactions with dummy variables have at least one significant term, so we will keep all of them.
+
+
+Now all interaction terms have at least one significant interaction with a dummy variable, so we can stop here. Our final model is the following:
+
+$\widehat{LOWBID} = -73430 + 1.102(DOTEST) + 61560(STATUS_1) + 197.4(NUMIDS) + 24580(DISTRICT_2) + 63260(DISTRICT_3) - 1531000(DISTRICT_4) + 15720(DISTRICT_5) + 0.09218(DOTEST*STATUS_1) -0.01995(DOTEST*NUMIDS) + 0.03939(DOTEST*DISTRICT_2) - 0.1326(DOTEST*DISTRICT_3 - 0.02532(DOTEST*DISTRICT_4) - 0.1335(DOTEST*DISTRICT_5) + 1648(NUMIDS*DISTRICT_2) + NUMIDS*DISTRICT_3 + 151300(NUMIDS*DISTRICT_4) + 18030((NUMIDS*DISTRICT_5)$
+
+### **i)**
+```{r}
+sigma(flag_d)
+sigma(flag_h_reduced)
+```
+
+RMSE in part (d): 281686.7
+
+RMSE in part (h): 251376.4
+
+The RMSE from the model in part (h) is much lower than the RMSE from the model in part (d). This means that the standard deviation of the unexplained variance from model in (h) is lower than from the model in part (d). This means that the model in part (h) is superior in terms of RMSE when compared to the model in part (d).
+
+### **j)**
+```{r}
+summary(flag_h_reduced)$adj.r.square
+```
+
+We get an adjusted R-squared value from our model in part (h) of 0.9809988 This means that 98.10% of the variance in price of the contract bid by the lowest bidder can be explained by out model. Considering the maximum value that adjusted R-squared can be is 1.00 (or 100%), this is quite a high value.
+
+## **Problem 4**
+
+```{r}
+# Read in CSV file
+kbi <- read.csv("KBI.csv")
+```
+
+
+### **a)**
+```{r}
+# Build the full model
+kbi_full <- lm(BURDEN~., data=kbi)
+# Do step-wise regression on full model
+stepmod_kbi = ols_step_both_p(kbi_full,pent = 0.1, prem = 0.3, details=FALSE)
+summary(stepmod_kbi$model)
+```
+
+
+CGDUR is not statistically significant when using an alpha value of 0.05, so we will re-run the regression without this variable.
+
+```{r}
+summary(lm(BURDEN~MEM+SOCIALSU, data = kbi))
+```
+
+All variables are now statistically significant. So using step-wise regression, we get the following significant predictor variables: MEM and SOCIALSU . Therefore, the model used for predicting caregiver burden would be: 
+
+$\widehat{BURDEN} = 116.07291 + 0.59941(MEM) - 0.47552(SOCIALSU)$
+
+### **b)**
+
+To do all-possible-regressions-selection, I will use the method from the "leaps" library.
+
+```{r}
+best.subset <- regsubsets(BURDEN~., data = kbi, nv=10)
+reg.summary<-summary(best.subset)
+cp<-c(reg.summary$cp)
+AdjustedR<-c(reg.summary$adjr2)
+RMSE<-c(reg.summary$rss)
+BIC<-c(reg.summary$bic)
+cbind(cp,BIC,RMSE,AdjustedR)
+```
+
+Based on the output of our all-possible-regressions selection procedure, we should choose the model with 2 variables since it has the lowest BIC, cp is only 0.610120 away from p+1, and adjusted R-squared is only 0.0168541 lower than the highest RMSE. We can look at the summary output to see which 2 variables should be included in the model.
+
+```{r}
+reg.summary
+```
+
+The 2 variables that should be included in the model are: MEM and SOCIALSU.
+
+```{r}
+kbi_fit <- lm(BURDEN~MEM+SOCIALSU, data = kbi)
+summary(kbi_fit)
+```
+
+Therefore our final addictive model using all-possible-regressions-selection is: $\widehat{BURDEN} = 116.07291 + 0.59941(MEM) - 0.59941(SOCIALSU)$
+
+### **c)**
+Looking at (a) and (b), the variables that consistently are selected for the best model is MEM and SOCIALSU. I will use these three variables to create an interaction model.
+
+```{r}
+summary(lm(BURDEN~(MEM+SOCIALSU)^2, data = kbi))
+```
+
+Based on our output, there are no statistically significant interactions between the variables, so we should not include any interaction terms in our first order model.
+
+Therefore, the final model I would suggest for prediction of caregiver burden would be:
+
+```{r}
+summary(lm(BURDEN~MEM+SOCIALSU, data = kbi))
+sigma(lm(BURDEN~MEM+SOCIALSU, data = kbi))
+```
+
+$\widehat{BURDEN} = 116.07291 + 0.59941(MEM) - 0.47552(SOCIALSU)$. This model gives an adjusted R-squared of 0.4072 and an RMSE of 15.44289.
+
+
+**Session Info:**
+```{r}
+sessionInfo()
+```
+

@@ -1,0 +1,416 @@
+---
+title: "DATA 603 HW 3"
+author: "Kane Smith"
+date: "2022-10-30"
+output:
+  pdf_document:
+    toc: yes
+  html_document:
+    toc: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, include=FALSE}
+options(tinytex.verbose = TRUE)
+```
+
+```{r, include=FALSE}
+set.seed(123)
+```
+
+```{r analysis, include=FALSE}
+library(ggplot2)
+library(dplyr)
+library(mosaic)
+```
+
+
+## **Problem 1**
+
+```{r}
+water <- read.csv("water.csv")
+```
+
+
+### **a)**
+```{r}
+water_fit <- lm(USAGE~TEMP+PROD+DAYS+HOUR, data = water)
+summary(water_fit)$coef
+```
+
+From our fitted model, we get a estimated multiple regression equation of: 
+
+$\widehat{USAGE} = 5.8916 + 0.1687TEMP + 0.0402PROD - 0.02162DAYS - 0.0710HOUR$.
+
+### **b)**
+
+To test the hypothesis of the whole model, we will conduct a global F test. We will begin by stating the null and alternative hypothesis.
+
+Null hypothesis: $H_{0}: \beta_{TEMP}=\beta_{PROD}=\beta_{DAYS}=\beta_{HOUR}=0$
+
+Alternative hypothesis: At least one $\beta_{i} (i= TEMP,PROD,DAYS,HOUR)$ does not equal 0.
+
+We will set the alpha value to 0.05.
+
+```{r}
+summary(water_fit)
+```
+
+The summary output of our fitted model shows an Fcalc of 486 and a p-value of 2.2e-16. Since 2.2e-16 is less than our set alpha value of 0.05, we have compelling evidence against the null hypothesis and can therefore reject it. We can then conclude that at least one of the regression coefficients does not equal zero and the full model is overall significant.
+
+### **c)**
+
+Although the model in b) is significant overall, I would not recommend it for predictive purposes. Below are the t-statistics and p-values for the individual coefficients in the model.
+```{r message=FALSE, warning=FALSE}
+q1_t_vals <- c(20.546, 24.681, -0.672, -4.178)
+q1_p_vals <-c(2e-16, 2e-16, 0.502, 4.1e-05)
+q1_col_names <- c('variable', 't-value', 'p-value')
+variable <- c('TEMP', 'PROD', 'DAYS', 'HOUR')
+q1_df <- data.frame(variable, q1_t_vals, q1_p_vals)
+colnames(q1_df) <- q1_col_names
+knitr::kable(q1_df, caption = "T-values and P-values for Predictors")
+```
+
+All variables have very low p-values and are significant except for DAYS which has a p-value of 0.502. Therefore I would use a model with the variables TEMP, PROD, and HOUR to predict USAGE.
+
+$\widehat{USAGE} = 5.8916 + \hat\beta_{TEMP}TEMP +  \hat\beta_{PROD}PROD -  \hat\beta_{HOUR}HOUR$.
+
+### **d)**
+
+To conduct a partial F-test, we will begin by stating our null and alternative hypothesis.
+
+Null hypothesis: $H_{0}: \beta_{DAYS} =0$ in the model $USAGE = \beta_0+ \beta_{TEMP}TEMP + \beta_{PROD}PROD - \beta_{DAYS}DAYS -\beta_{HOUR}HOUR+\epsilon$.
+
+Alternative hypothesis: At least one $\beta_{DAYS} \neq 0$ in the model $USAGE = \beta_0+ \beta_{TEMP}TEMP + \beta_{PROD}PROD - \beta_{DAYS}DAYS -\beta_{HOUR}HOUR+\epsilon$.
+
+We will set the alpha value to 0.05.
+
+```{r}
+water_reduced <- lm(USAGE~TEMP+PROD+HOUR, data=water) # Fit model without DAYS variable 
+anova(water_reduced, water_fit)
+```
+
+After dropping the DAYS variable, our ANOVA output gives a Fcalc of 0.4514 and a p-value of 0.5023, meaning that we fail to reject the null hypothesis that the coefficient for DAYS is equal to zero. Therefore, we conclude that we should drop the DAYS variable from our model.
+
+### **e)**
+```{r}
+confint(water_reduced)
+```
+
+Using confint on the model without DAYS, we get a 95% confidence interval for TEMP of **(0.1531, 0.1853)**. This means that we can say with 95% confidence that the coefficient for TEMP is between 0.1531 and 0.1853.
+
+In other words, if the average monthly temperature increases by one degree Celsius, we can say with 95% confidence that the mean monthly water usage will increase by between 0.1531 and 0.1853 gallons per minute.
+
+### **f)**
+```{r}
+summary(water_fit)$adj.r.squared
+sigma(water_fit)
+summary(water_reduced)$adj.r.squared
+sigma(water_reduced)
+```
+
+For the full model from a), we get an adjusted R-squared of 0.886658 and a RMSE of 1.768414.
+
+For the model without DAYS from c), we get an adjusted R-squared of 0.8869118 and a RMSE of 1.766433.
+
+R-squared indicates how much of the variance in the dependent variable is explained by the model. Adjusted R-squared compensates for the fact that adding variables to the model will always increase R-squared. This means that both models explain about ~88% of the variance in USAGE, with the model from c) being slightly higher. Having higher adjusted R-squared is better.
+
+RMSE shows the standard deviation of the variation that is not explained by the model. The lower RMSE, the better. The model built in part c) has a slightly lower RMSE than the model built in part a).
+
+Because the model without the DAYS variable has a higher adjusted r-squared and a lower RMSE compared to the full model, I would choose the model without the DAYS variable for prediction purposes. 
+
+### **g)**
+```{r}
+water_reduced2 <- lm(USAGE~TEMP*PROD*HOUR, data=water)
+summary(water_reduced2)
+```
+
+From our output, the statistically significant interaction terms are (TEMPxPROD) and (PRODxHOUR) with p-values of 3.15e-05 and < 2e-16 respectively. Therefore, we should keep these interaction terms and drop the rest.
+
+```{r}
+water_reduced3 <- lm(USAGE~TEMP+PROD+HOUR+PROD:HOUR+ TEMP:PROD, data=water)
+summary(water_reduced3)
+```
+
+The model I would recommend for prediction purposes is: $\widehat{USAGE} = 1.243 - 0.0047373TEMP - 0.002529PROD - 0.2151HOUR + 0.0007873(PROD*HOUR) + 0.001142(TEMP*PROD)$.
+
+## **Problem 2**
+
+```{r}
+gfclocks <- read.csv("GFCLOCKS.csv")
+```
+
+### **a)**
+```{r}
+gfc_fit <- lm(PRICE~AGE+NUMBIDS, data=gfclocks)
+summary(gfc_fit)$coef
+```
+
+Using the least squares method, we get the following estimates:
+
+$\beta_{0}$ (Intercept): -1338.95134
+
+$\beta_{1}$ (AGE): 12.74057
+
+$\beta_{2}$ (NUMBIDS): 85.95298
+
+### **b)**
+
+To calculate SSE, we can use the following equation: $SSE = \sum{(\hat{y_i}-y_i)^2}$.
+
+```{r}
+sse <- sum((gfc_fit$fitted.values-gfclocks$PRICE)^2)
+sse
+```
+
+We get an SSE of 516,726.5.
+
+### **c)**
+```{r}
+sigma(gfc_fit)
+```
+
+RMSE is in the units of our predicted variable. So from our output, we get a RMSE of $133.48. This is the standard deviation of the variation that is not explained by the fitted model.
+
+### **d)**
+```{r}
+summary(gfc_fit)$adj.r.square
+```
+
+We get an adjusted R-square of 0.8849194. This means about 88.49194% of the variance in the auction price of clocks is explained by the fitted model using age of the clock and number of bidders in the auction.
+
+### **e)**
+
+Below is the calculation of the ANOVA table:
+
+```{r}
+reg_df = 2
+res_df = nrow(gfclocks) - reg_df - 1
+total_df = reg_df + res_df
+ssr = sum((gfc_fit$fitted.values - mean(gfclocks$PRICE))^2)
+sst = sse + ssr
+msr = ssr/reg_df
+mse = sse/res_df
+f_calc = msr/mse
+col_1 <- c("Regression", "Residual", "Total")
+col_2 <- c(reg_df, res_df, total_df)
+col_3 <- c(ssr, sse, sst)
+col_4 <- c(msr, mse, "")
+col_5 <- c(f_calc, "", "")
+anova_df <- data.frame(col_1, col_2,col_3,col_4, col_5)
+colnames(anova_df) <- c("Source of Variation", "Df", "Sum of Squares", "Mean Square", "F-Statistic")
+knitr::kable(anova_df, caption = "ANOVA Table")
+```
+
+To do conduct a global F-test for our model, we must first state our null and alternative hypothesis:
+
+Null hypothesis: $H_{0}: \beta_{1}=\beta_{2} =0$
+
+Alternative hypothesis: At least one $\beta_{i} \neq 0$ $(i = 1,2)$
+
+We will set an alpha value of 0.05.  
+
+```{r}
+summary(gfc_fit)
+```
+
+The summary output of our fitted model shows an Fcalc of 120.2 and a p-value of 9.216e-15 which is less than our set alpha value of 0.05. Therefore we can reject our null hypothesis that all of the regression coefficients are equal to zero. We can then conclude that at least one of the regression coefficients does not equal zero and the full model is overall significant.
+
+### **f)**
+
+To test whether mean auction price of a clock increases as the number of bidders increases when age is held constant, we need to test whether we can say that the coefficient of NUMBIDS is different from 0. To do this, we will do a partial F-test. We will start by stating the null and alternative hypothesis.
+
+
+Null hypothesis: $H_{0}: \beta_{2} =0$ in the model $Y = \beta_0+ \beta_{1}X_{1} + \beta_{2}X_{2}$.
+
+Alternative hypothesis: $\beta_{2} \neq 0$ in the model $Y = \beta_0+ \beta_{1}X_{1} + \beta_{2}X_{2}$.
+
+We will set an alpha value of 0.05.   
+
+```{r}
+gfc_reduced <- lm(PRICE~AGE, data = gfclocks)
+anova(gfc_reduced, gfc_fit)
+```
+
+From our test we get a Fcalc of 96.971 and a p-value of 9.345e-11 which is less than our set alpha value of 0.05. This means we can reject the null hypothesis and conclude with 95% significance level than $\beta_{1} \neq 0$ meaning that the mean auction price of clocks increase as the number of bidders increase when age is held constant and therefore we should keep NUMBIDS in our model.
+
+We can also refer to the summary of the full fitted model to see the t-stat 9.847 and p-value of 9.34e-11 for NUMBIDS which confirms our conclusion from the partial F-test.
+
+ 
+### **g)**
+```{r}
+confint(gfc_fit)
+```
+
+We get a 95% confidence interval for $\beta_{1}$ (AGE) of **(10.8902, 14.5910)**. This means that when the age of the clock increases by 1 year, we can say with 95% confidence that the mean auction price of the clock will increase between 10.89 and 14.59 dollars. 
+
+### **h)**
+```{r}
+gfc_interact <- lm(PRICE~AGE*NUMBIDS, data = gfclocks)
+summary(gfc_interact)
+```
+
+From our output, we get a p-value for the interaction variable between AGE and NUMBIDS of 1.35e-06 which is less than our set alpha value of 0.05. Therefore, we can keep the interaction variable in our model. The model I would suggest using to predict the auction price of a clock (y) would be: $\hat{y} = 320.458 + 0.8781X_{1} - 93.2648X_{2} + 1.2978(X_{1}*X_{2})$
+
+
+## **Problem 3**
+
+```{r}
+turbine <- read.csv("TURBINE.csv")
+```
+
+### **a)**
+
+```{r}
+#Fit the full model
+turbine_fit <- lm(HEATRATE~RPM+INLET.TEMP+EXH.TEMP+CPRATIO+AIRFLOW, data = turbine)
+summary(turbine_fit)
+```
+
+First order model:
+
+$\widehat{HEATRATE} = 13610 + 0.08879RPM - 9.201INLET + 14.39EXH + 0.3519CPRATIO - 0.8480AIRFLOW$
+
+
+### **b)**
+
+To test the overall significance of the model, we will do a global F-test. First we will state the null and alternative hypothesis.
+
+Null hypothesis: $H_{0}: \beta_{RPM} = \beta_{INLET} = \beta_{EXH} = \beta_{CPRATIO} = \beta_{AIRFLOW} = 0$
+
+Alternative hypothesis: At least one $\beta_{i} \neq 0$ $(i = RPM, INLET, EXH, CPRATIO, AIRFLOW)$ 
+
+We will set an alpha value of 0.01.
+
+```{r}
+turbine_fit <- lm(HEATRATE~RPM+INLET.TEMP+EXH.TEMP+CPRATIO+AIRFLOW, data = turbine) # Fit the full model
+turbine_null <- lm(HEATRATE~1, data = turbine) # Fit the model with only intercept 
+anova(turbine_null, turbine_fit)
+```
+
+From our global F-test, we get an Fcalc of 147.3 and a p-value of <2.2e-16. The p-value is less than our set alpha value of 0.01, meaning we can reject our null hypothesis that all the coefficients in our model are 0. We can then conclude with a significance level of 0.01 that at least one of the coefficients is not equal to 0 and our overall model is significant. 
+
+### **c)**
+CPRATIO has a t-stat of 0.012 and p-value of 0.990539, meaning we should take this out of our model as it is not a significant predictor of HEATRATE.
+
+AIRFLOW is the variable that has a p-value close to 0.05. We will evaluate the model with and without this variable. If the addition of AIRFLOW shows an increase in model performance, we will keep it in.
+
+Null hypothesis: $H_{0}: \beta_{AIRFLOW} =0$ in the model $Y = \beta_0+ \beta_{RPM}RPM + \beta_{INLET}INLET + \beta_{EXH}EXH + \beta_{AIRFLOW}AIRFLOW + \epsilon$.
+
+Alternative hypothesis: $\beta_{AIRFLOW} \neq 0$ in the model $Y = \beta_0+ \beta_{RPM}RPM + \beta_{INLET}INLET + \beta_{EXH}EXH + \beta_{AIRFLOW}AIRFLOW + \epsilon$.
+```{r}
+turbine_reduced <- lm(HEATRATE~RPM+INLET.TEMP+EXH.TEMP+AIRFLOW, data = turbine) # With AIRFLOW
+turbine_reduced2<- lm(HEATRATE~RPM+INLET.TEMP+EXH.TEMP, data = turbine) # Without AIRFLOW
+summary(turbine_reduced)
+summary(turbine_reduced2)
+anova(turbine_reduced2, turbine_reduced)
+sigma(turbine_reduced)
+sigma(turbine_reduced2)
+```
+
+Both model provide a p-value of 2.2e-16. The model with AIRFLOW  provides a higher adjusted R-squared value (0.9186 vs. 0.915) and a lower RMSE (455.1137 vs. 464.9797). Therefore, we will keep AIRFLOW in the model for predictive purposes as it improves the adjusted R-squared and RMSE albeit only slightly.
+
+
+The model I would recommend for predictive purposes is:
+
+$\widehat{HEATRATE} = 13620 + 0.08882RPM - 9.186INLET + 14.36EXH - 0.8475AIRFLOW$
+
+
+### **d)**
+
+Creating a two-way interaction model of all our variables:
+
+```{r}
+turbine_interaction<- lm(HEATRATE~(RPM+INLET.TEMP+EXH.TEMP+AIRFLOW)^2, data = turbine)
+summary(turbine_interaction)
+```
+
+Evaluating individual t-test with alpha value of 0.05.
+
+From our output,the interaction variable that are statically significant according to their t-tests are (INLET x AIRFLOW) and (EXH x AIRFLOW). Therefore, we will include these in our interaction model.
+
+```{r}
+turbine_interaction_final <- lm(HEATRATE~RPM+INLET.TEMP+EXH.TEMP+AIRFLOW+INLET.TEMP:AIRFLOW+EXH.TEMP:AIRFLOW, data=turbine)
+summary(turbine_interaction_final)
+```
+
+Although from the individual t-test, AIRFLOW is statistically insignificant, it's interaction with INLET and EXH is significant so we should keep it in the model based on the hierarchical principle. 
+
+Therefore, the final model I would suggest for predicting HEATRATE (y) would be: $\widehat{HEATRATE} = 13600 + 0.04578RPM - 12.80INLET + 23.27EXH + 1.347AIRFLOW + 0.01613(INLET*AIRFLOW)-0.04150(EXH*AIRFLOW)$
+
+
+### **e)**
+
+Practical interpretations:
+
+$\beta_{0}$ **(Intercept)**: When RPM, inlet temperature, exhaust temperature are all 0, HEATRATE will be 13600 kJ/KW/h.
+
+**RPM:** For an increase in the RPM of 1 rev/min, HEATRATE will increase by an average 0.04578 kJ/KW/h.
+
+**INLET:** For an increase in the inlet temperature of 1 degree Celsius, HEATRATE will decrease by an average 12.80 kJ/KW/h.
+
+**EXH:** For an increase in the exhaust temperature of 1 degree Celsius, HEATRATE will increase by an average 23.27 kJ/KW/h.
+
+**AIRFLOW:** For an increase in the airflow of 1 kg/s, HEATRATE will increase by an average 1.347 kJ/KW/h.
+
+**(INLET x AIRFLOW):** For an increase in the inlet temperature of 1 degree Celsius, HEATRATE will increase by an average 0.01613*AIRFLOW kJ/KW/h.
+
+**(EXH x AIRFLOW):**For an increase in the exhaust temperature of 1 degree Celsius, HEATRATE will decrease by an average 0.04150*AIRFLOW kJ/KW/h.
+
+### **f)**
+```{r}
+sigma(turbine_interaction_final)
+```
+
+From our output, we get a RMSE of 401.3508 kJ/KW/h.
+
+
+### **g)**
+
+```{r}
+summary(turbine_interaction_final)
+```
+
+The adjusted R-squared value of the model from d) is 0.9367. This means that about 93.67% of the variance in HEATRATE can be explained using our model.
+
+### **h)**
+
+Predicting HEATRATE when:
+
+RPM = 273145
+
+INLET.TEMP = 1240
+
+EXH.TEMP = 920
+
+CPRATIO = 10 (NOT IN OUR MODEL)
+
+AIRFLOW = 25
+
+```{r}
+13600 + 0.04578*273145 - 12.80*1240 + 23.27*920 + 1.347*25 + 0.01613*(1240*25)-0.04150*(920*25)
+```
+
+We get a predicted HEATRATE of **31,220.18 kJ/KW/h.** 
+
+However, we must check that the values we are plugging into our model are within the range of our original data used to fit the model. If it is not, we extrapolating. This is bad because we do not know how the data behaves outside of our range, and therefore should not be making predictions. 
+
+```{r}
+fav_stats <- favstats(~RPM, data = turbine)[c("min", "max")]
+fav_stats <- rbind(fav_stats, favstats(~INLET.TEMP, data = turbine)[c("min", "max")], favstats(~EXH.TEMP, data = turbine)[c("min", "max")], favstats(~CPRATIO, data = turbine)[c("min", "max")], favstats(~AIRFLOW, data = turbine)[c("min", "max")])
+fav_stats["variable"] <- c("RPM", "INLET.TEMP", "EXH.TEMP", "CPRATIO", "AIRFLOW")
+knitr::kable(fav_stats, caption = "Min and Max")
+```
+
+In our case, our values for EXH.TEMP  fall out of the range of our original data. Therefore we should not trust our predicted value of HEATRATE from our model due to our input values. 
+
+
+
+**Session Info:**
+```{r}
+sessionInfo()
+```
+
